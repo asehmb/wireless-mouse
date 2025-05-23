@@ -1,0 +1,10 @@
+# Minimum required CMake version
+cmake_minimum_required(VERSION 3.20.0)
+
+# Find Zephyr package (must come before project())
+find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+
+# Define your project
+project(wired_mouse VERSION 0.1.0)
+
+
