@@ -8,3 +8,4 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(wired_mouse VERSION 0.1.0)
 
 
+target_sources(app PRIVATE src/main.c)

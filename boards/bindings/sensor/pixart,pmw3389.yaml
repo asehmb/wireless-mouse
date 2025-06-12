@@ -1,0 +1,14 @@
+
+description: |
+  Mouse Sensor
+
+compatible: "pixart,pmw3389"
+
+include: spi-device.yaml
+
+properties:
+  resolution:
+    type: int
+    required: true
+    description: |
+      Resolution in CPI
