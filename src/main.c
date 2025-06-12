@@ -71,6 +71,7 @@ struct spi_config spi_cfg = {
     .slave = 0,
 };
 
+
 bool init_complete = false;
 volatile int16_t delta_x = 0;
 volatile int16_t delta_y = 0;
