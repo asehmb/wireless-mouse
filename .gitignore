@@ -3,7 +3,6 @@ build/
 .cache
 .venv
 .west
-.vscode
 *.txt
 
 zephyr/

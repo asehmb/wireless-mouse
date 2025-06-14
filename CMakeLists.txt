@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.20.0)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 # Define your project
-project(wired_mouse VERSION 0.1.0)
+project(wireless_mouse VERSION 0.1.0)
 
 
-target_sources(app PRIVATE src/main.c)
+target_sources(app PRIVATE src/main.c src/pmw3389.c)
