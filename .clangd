@@ -1,0 +1,5 @@
+Diagnostics:
+  Suppress: unused-includes
+CompileFlags:
+  Remove: [-Wunknown-warning-option, -fno-printf-return-value, -mfp16-format=ieee,
+           -fno-reorder-functions]

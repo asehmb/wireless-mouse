@@ -12,6 +12,17 @@
 };
 
 
+/ {
+    hid_dev_0: hid_dev_0 {
+        compatible = "zephyr,hid-device";
+        status = "okay";
+        label = "HID_0";
+        protocol-code = "mouse";
+        in-report-size = <8>;
+        in-polling-period-us = <1000>;
+    };
+};
+
 &pinctrl {
     spi2_default: spi2_default {
             group1 {

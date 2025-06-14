@@ -1,8 +1,9 @@
 /* adapted from mrjohnk's https://github.com/mrjohnk/PMW3389DM/blob/master/Arduino%20Examples/PMW3389DM-polling/PMW3389DM-polling.ino
                and dkao's https://github.com/dkao/Kensington_Expert_Mouse_PMW3389_Arduino*/
+#include "../../config.h"
 #include "pmw3389.h"
 
-static const struct device *pmw3389_spi_dev = DEVICE_DT_GET(DT_NODELABEL(PMW3389_SPI_DEV));
+static const struct device *pmw3389_spi_dev = PMW3389_SPI_DEV;
 static const struct gpio_dt_spec cs = {
     .port = DEVICE_DT_GET(DT_NODELABEL(gpio0)),
     .pin = PMW3389_CS_PIN,

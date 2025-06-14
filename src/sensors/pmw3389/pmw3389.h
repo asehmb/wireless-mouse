@@ -2,13 +2,10 @@
 #ifndef PMW3389_H
 #define PMW3389_H
 
-#include "config.h"
-
 #include <zephyr/drivers/spi.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/__assert.h>
 #include <zephyr/kernel.h>
-#include "srom.h"
 
 // Pins
 #ifndef PMW3389_CS_PIN
@@ -16,7 +13,7 @@
 #endif
 
 #ifndef PMW3389_SPI_DEV
-#define PMW3389_SPI_DEV spi0 // Default SPI device, can be overridden in the build configuration
+#define PMW3389_SPI_DEV DEVICE_DT_GET(DT_NODELABEL(spi0)) // Default SPI device, can be overridden in the build configuration
 #endif
 
 
@@ -72,8 +69,6 @@
 #define Raw_Data_Burst  0x64
 #define LiftCutoff_Tune2  0x65
 
-#define constrain(x, a, b) ((x) < (a) ? (a) : ((x) > (b) ? (b) : (x)))
-
 #define R_CHECK(func) do { \
     int ret = (func); \
     if (ret) { \
@@ -92,10 +87,5 @@ int write_register(uint8_t reg, uint8_t value);
 int srom_download(const uint8_t *firmware_data, size_t firmware_length);
 int init_pmw3389(void);
 int fetch_burst_xy(volatile short *x, volatile short *y);
-
-static const struct device *pmw3389_spi_dev;
-static struct spi_config pmw3389_spi_cfg;
-
-
 
 #endif // PMW3389_H

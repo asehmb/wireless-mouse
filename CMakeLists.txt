@@ -8,4 +8,4 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(wireless_mouse VERSION 0.1.0)
 
 
-target_sources(app PRIVATE src/main.c src/pmw3389.c)
+target_sources(app PRIVATE src/main.c src/sensors/pmw3389/pmw3389.c)

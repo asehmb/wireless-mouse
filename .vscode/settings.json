@@ -1,6 +1,5 @@
 {
-  "C_Cpp.intelliSenseEngine": "default",
-  "C_Cpp.default.intelliSenseMode": "gcc-arm",
+
   "C_Cpp.default.compilerPath": "/path/to/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc",
   "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
   "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json"
