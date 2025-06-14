@@ -1,6 +1,7 @@
+/* https://github.com/mrjohnk/PMW3389DM/blob/master/Arduino%20Examples/PMW3389DM-polling/SROM.ino */
 
+// the firmeware that is uploaded in the ADNS each time it boots
 
-/*https://github.com/mrjohnk/PMW3389DM/blob/master/Arduino%20Examples/PMW3389DM-polling/SROM.ino*/
 
 const unsigned short firmware_length = 4094;
 

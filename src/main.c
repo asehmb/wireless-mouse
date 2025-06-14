@@ -56,6 +56,8 @@
 #define Raw_Data_Burst  0x64
 #define LiftCutoff_Tune2  0x65
 
+#define constrain(x, a, b) ((x) < (a) ? (a) : ((x) > (b) ? (b) : (x)))
+
 
 static const struct device *spi_dev = DEVICE_DT_GET(DT_NODELABEL(spi2));
 static const struct gpio_dt_spec cs = {
@@ -182,28 +184,90 @@ int read_burst(uint8_t *data, int len) {
 }
 
 int fetch_burst_xy(volatile short *x, volatile short *y) {
-    uint8_t data[12] = {0};
-    int ret = read_burst(data, sizeof(data));
-    if (ret) {
-        printk("Error reading burst data: %d\n", ret);
-        return ret;
+    uint8_t tx_buf_data[12] = {0};         // Dummy bytes
+    uint8_t rx_buf_data[12] = {0};
+
+
+    struct spi_buf tx_buf = {
+        .buf = tx_buf_data,
+        .len = sizeof(tx_buf_data),
+    };
+    struct spi_buf rx_buf = {
+        .buf = rx_buf_data,
+        .len = sizeof(rx_buf_data),
+    };
+    struct spi_buf_set tx = {
+        .buffers = &tx_buf,
+        .count = 1,
+    };
+    struct spi_buf_set rx = {
+        .buffers = &rx_buf,
+        .count = 1,
+    };
+
+    // Start burst mode
+    begin_ncs();
+
+    if (send_byte(Motion_Burst)) {
+        end_ncs();
+        printk("Failed to send Motion_Burst command\n");
+        return -EIO;
     }
 
-    // Combine the low and high bytes for X and Y
-    if (data[0] & 0x80) { // Check if motion is detected
-        motion_detected = true;
-        *x = (int16_t)((data[3] << 8) | data[2]);
-        *y = (int16_t)((data[5] << 8) | data[4]);
-        printk("Motion detected: Delta X: %d, Delta Y: %d\n", delta_x, delta_y);
-    } else {
-        motion_detected = false;
-        *x = 0;
-        *y = 0;
-    }
+    k_busy_wait(35);  // Datasheet requires at least 35us delay after Motion_Burst command
 
-    return 0; // Success
+
+    // Transceive dummy bytes to get burst data
+    int ret = spi_transceive(spi_dev, &spi_cfg, &tx, &rx);
+    k_busy_wait(1);
+    end_ncs();
+    if (ret) return ret;
+    /*
+       Y+
+    X-    X+
+       Y-
+    */
+
+
+    *x = -(int16_t)((rx_buf_data[3] << 8) | rx_buf_data[2]);
+    *y = (int16_t)((rx_buf_data[5] << 8) | rx_buf_data[4]);
+
+
+    return 0;
 }
 
+int srom_download() {
+
+    R_CHECK(write_register(Config2, 0x00));
+    R_CHECK(write_register(SROM_Enable, 0x1D));
+
+    k_msleep(10); // Wait for SROM to be enabled
+
+    R_CHECK(write_register(SROM_Enable, 0x18));
+
+    begin_ncs();
+    send_byte(SROM_Load_Burst | 0x80); // Set MSB for SROM load burst
+    k_busy_wait(15);
+
+    for (int i = 0; i < firmware_length; i++) {
+        send_byte(firmware_data[i]);
+        k_busy_wait(15);
+    }
+
+    k_msleep(10); // Wait for SROM load to complete
+
+    uint8_t srom_id = read_register(SROM_ID);
+    printk("SROM ID: %02X\n", srom_id);
+
+    R_CHECK(write_register(Config2, 0x00));
+
+    R_CHECK(write_register(Config1, 0x15));
+
+    end_ncs();
+
+    k_msleep(10); // Wait for the sensor to stabilize after SROM load
+    return 0; // Success
+}
 
 int init_pmw3389(void) {
     gpio_pin_configure_dt(&cs, GPIO_OUTPUT_HIGH); // Set to HIGH (inactive) by default
@@ -212,12 +276,16 @@ int init_pmw3389(void) {
     begin_ncs();
     end_ncs();
 
-    int ret = write_register(Power_Up_Reset, 0x5A);
-    if (ret) {
-        printk("Failed to reset PMW3389: %d\n", ret);
-        return ret;
-    }
-    k_msleep(50); // Wait for the sensor to power up
+    R_CHECK(write_register(Shutdown, 0xB6)); // Power up reset
+    k_msleep(300); // Wait for the sensor to power up
+
+    begin_ncs();
+    k_busy_wait(40);
+    end_ncs();
+    k_busy_wait(40);
+
+    R_CHECK(write_register(Power_Up_Reset, 0x5A));
+    k_msleep(50); // Wait for the sensor to reset
 
     // read registers 0x02 to 0x06
     uint8_t reg_data[5];
@@ -227,50 +295,10 @@ int init_pmw3389(void) {
     reg_data[3] = read_register(Delta_Y_L);
     reg_data[4] = read_register(Delta_Y_H);
 
-    /* SROM DONWLOAD */
-    ret = write_register(Config2, 0x20);
-    if (ret) {
-        printk("Failed to set Config2: %d\n", ret);
-        return ret;
-    }
-    ret = write_register(SROM_Enable, 0x1D);
-    if (ret) {
-        printk("Failed to enable SROM: %d\n", ret);
-        return ret;
-    }
-    k_msleep(10); // Wait for SROM to be enabled
-    ret = write_register(SROM_Enable, 0x18);
-    if (ret) {
-        printk("Failed to set SROM Enable: %d\n", ret);
-        return ret;
-    }
-    begin_ncs();
-    send_byte(SROM_Load_Burst | 0x80); // Set MSB for SROM load burst
-    k_busy_wait(15);
-
-    for (int i = 0; i < firmware_length; i++) {
-        uint8_t byte = firmware_data[i];
-        struct spi_buf buf = {.buf = &byte, .len = 1};
-        struct spi_buf_set tx = {.buffers = &buf, .count = 1};
-        spi_write(spi_dev, &spi_cfg, &tx); // Do not re-toggle CS here
-        k_busy_wait(15);
-    }
-
-    ret = write_register(Config2, 0x00);
-    if (ret) {
-        printk("Failed to reset Config2: %d\n", ret);
-        return ret;
-    }
-    ret = write_register(Config1, 0x15);
-    if (ret) {
-        printk("Failed set CPI in Config1: %d\n", ret);
-        return ret;
-    }
-    end_ncs();
-
-    k_msleep(10); // Wait for the sensor to stabilize after SROM load
-    uint8_t srom_id = read_register(SROM_ID);
-    printk("SROM ID: %02X\n", srom_id);
+    /* SROM DONWLOAD
+       for some reason loading SROM makes it so that the x and y regs are 0
+       always 0 so its not needed in this case, YMMV
+    END SROM DOWNLOAD */
 
     reg_data[0] = read_register(Motion);
     reg_data[1] = read_register(Delta_X_L);
@@ -279,11 +307,16 @@ int init_pmw3389(void) {
     reg_data[4] = read_register(Delta_Y_H);
     printk("Initial Motion: %02X, Delta_X_L: %02X%02X, Delta_X_H: %02X%02X\n ",
            reg_data[0], reg_data[1], reg_data[2], reg_data[3], reg_data[4]);
-    k_msleep(5000);
+    k_msleep(10);
 
     return 0; // Success
 }
-
+int convTwosComplement(int16_t val) {
+    if (val & 0x8000) { // Check if the sign bit is set
+        return val - 65536; // Convert to negative value
+    }
+    return val; // Positive value, no conversion needed
+}
 
 int main(void) {
     if (!device_is_ready(spi_dev)) {
@@ -300,18 +333,11 @@ int main(void) {
     init_complete = true;
 
     while (1) {
-
-        uint8_t motion = read_register(0x02);
-
-        if (motion & 0x80) {
-            // Motion detected
-            delta_x = (int16_t)((read_register(0x04)) | (read_register(0x05) << 8));
-            delta_y = (int16_t)((read_register(0x06)) | (read_register(0x07) << 8));
-            printk("Motion: X: %d, Y: %d\n", delta_x, delta_y);
-        } else {
-            printk("No motion\n");
+        k_msleep(10); // Polling interval
+        fetch_burst_xy(&delta_x, &delta_y);
+        if (delta_x|| delta_y) {
+            printk("Motion detected: Delta X: %d, Delta Y: %d\n", delta_x, delta_y);
         }
-        k_msleep(5); // Polling interval
     }
 
     return 0;

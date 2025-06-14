@@ -4,8 +4,6 @@
     pinctrl-names = "default", "sleep";
     pmw3389: pmw3389@a {
         compatible = "pixart,pmw3389";
-        cs-gpios = <&gpio0 24 GPIO_ACTIVE_LOW>;
-
         spi-max-frequency = <2000000>; // 2MHz
         resolution = <200>; // overflow in 0.5s at 8m/s -> 200 CPI
         status = "okay";
